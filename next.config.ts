@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
+  // Fix for cheerio and jsdom compatibility
+  serverExternalPackages: ['cheerio', 'jsdom'],
 };
 
 export default nextConfig;
