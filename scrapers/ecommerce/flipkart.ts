@@ -111,23 +111,20 @@ export class FlipkartScraper extends BaseScraper {
             const ratingText = $elem.find('._3LWZlK, .XQDdHH').first().text();
             const rating = ratingText ? parseFloat(ratingText) : undefined;
             
-            // Platform offers
-            const platformOffers: Offer[] = [];
-            if (originalPrice > basePrice) {
-              platformOffers.push({
-                type: 'PLATFORM',
-                description: 'Flipkart Discount',
-                value: originalPrice - basePrice,
-              });
-            }
+            // Don't include platform discount as an "offer" - it's already in basePrice
+            // basePrice = the price shown on Flipkart (after their discount)
+            // We only add ADDITIONAL offers like bank discounts
             
-            // Bank offers (simulated)
+            const platformOffers: Offer[] = [];
+            
+            // Bank offers (realistic - applied on discounted price)
+            // Maximum 5% additional discount on already discounted price
             const bankOffers: Offer[] = [
               {
                 type: 'BANK',
-                description: 'Axis Bank Credit Card - 10% Instant Discount',
-                value: Math.round(basePrice * 0.10),
-                maxDiscount: 2000,
+                description: 'Axis Bank Credit Card - 5% Instant Discount',
+                value: Math.min(Math.round(basePrice * 0.05), 1500), // Max ₹1500
+                maxDiscount: 1500,
               }
             ];
             
@@ -140,20 +137,11 @@ export class FlipkartScraper extends BaseScraper {
             // Cashback
             const cashback: Offer[] = [];
             
-            // Apply SINGLE BEST OFFER (safe)
+            // Apply SINGLE BEST OFFER
             const allOffers = [...platformOffers, ...bankOffers, ...cardOffers, ...coupons, ...cashback];
-            const bestOffer = allOffers.length > 0
-              ? allOffers.reduce((best, curr) => curr.value > best.value ? curr : best)
-              : undefined;
-
-            // Compute applied discount respecting maxDiscount and not exceeding the discounted price
-            let appliedValue = bestOffer?.value || 0;
-            if (bestOffer?.maxDiscount && appliedValue > bestOffer.maxDiscount) {
-              appliedValue = bestOffer.maxDiscount;
-            }
-            appliedValue = Math.min(appliedValue, basePrice);
-
-            const finalPrice = Math.max(0, basePrice - appliedValue);
+            const bestOffer = allOffers.reduce((best, curr) => curr.value > best.value ? curr : best, allOffers[0]);
+            
+            const finalPrice = basePrice - (bestOffer?.value || 0);
             
             // Only include the best offer
             let appliedPlatform: Offer[] = [];

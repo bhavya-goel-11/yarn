@@ -105,33 +105,20 @@ export class AmazonScraper extends BaseScraper {
         // Extract image
         const imageUrl = $elem.find('img.s-image').attr('src');
         
-        // Platform discount
+        // Don't include platform discount as an "offer" - it's already in basePrice
+        // basePrice = the price shown on Amazon (after their discount)
+        // We only add ADDITIONAL offers like bank discounts
+        
         const platformOffers: Offer[] = [];
-        if (originalPrice > basePrice) {
-          platformOffers.push({
-            type: 'PLATFORM',
-            description: `Amazon Discount`,
-            value: originalPrice - basePrice,
-          });
-        }
         
-        // Check for Prime badge (simulated offer)
-        const isPrime = $elem.find('[aria-label="Amazon Prime"]').length > 0;
-        if (isPrime) {
-          platformOffers.push({
-            type: 'PLATFORM',
-            description: 'Prime Exclusive Deal',
-            value: 0,
-          });
-        }
-        
-        // Bank offers (simulated - in reality would extract from product page)
+        // Bank offers (realistic - applied on discounted price)
+        // Maximum 5% additional discount on already discounted price
         const bankOffers: Offer[] = [
           {
             type: 'BANK',
-            description: 'HDFC Bank Credit Card - 10% Instant Discount',
-            value: Math.round(basePrice * 0.10),
-            maxDiscount: 3000,
+            description: 'HDFC Bank Credit Card - 5% Instant Discount',
+            value: Math.min(Math.round(basePrice * 0.05), 1500), // Max ₹1500
+            maxDiscount: 1500,
           }
         ];
         
@@ -144,20 +131,11 @@ export class AmazonScraper extends BaseScraper {
         // Cashback
         const cashback: Offer[] = [];
         
-        // Apply SINGLE BEST OFFER (safe)
+        // Apply SINGLE BEST OFFER
         const allOffers = [...platformOffers, ...bankOffers, ...cardOffers, ...coupons, ...cashback];
-        const bestOffer = allOffers.length > 0
-          ? allOffers.reduce((best, curr) => curr.value > best.value ? curr : best)
-          : undefined;
-
-        // Compute applied discount respecting maxDiscount and not exceeding the discounted price
-        let appliedValue = bestOffer?.value || 0;
-        if (bestOffer?.maxDiscount && appliedValue > bestOffer.maxDiscount) {
-          appliedValue = bestOffer.maxDiscount;
-        }
-        appliedValue = Math.min(appliedValue, basePrice);
-
-        const finalPrice = Math.max(0, basePrice - appliedValue);
+        const bestOffer = allOffers.reduce((best, curr) => curr.value > best.value ? curr : best, allOffers[0]);
+        
+        const finalPrice = basePrice - (bestOffer?.value || 0);
         
         // Only include the best offer in the result
         const appliedPlatform = bestOffer?.type === 'PLATFORM' ? [bestOffer] : [];
