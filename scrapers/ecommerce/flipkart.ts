@@ -140,11 +140,20 @@ export class FlipkartScraper extends BaseScraper {
             // Cashback
             const cashback: Offer[] = [];
             
-            // Apply SINGLE BEST OFFER
+            // Apply SINGLE BEST OFFER (safe)
             const allOffers = [...platformOffers, ...bankOffers, ...cardOffers, ...coupons, ...cashback];
-            const bestOffer = allOffers.reduce((best, curr) => curr.value > best.value ? curr : best, allOffers[0]);
-            
-            const finalPrice = basePrice - (bestOffer?.value || 0);
+            const bestOffer = allOffers.length > 0
+              ? allOffers.reduce((best, curr) => curr.value > best.value ? curr : best)
+              : undefined;
+
+            // Compute applied discount respecting maxDiscount and not exceeding the discounted price
+            let appliedValue = bestOffer?.value || 0;
+            if (bestOffer?.maxDiscount && appliedValue > bestOffer.maxDiscount) {
+              appliedValue = bestOffer.maxDiscount;
+            }
+            appliedValue = Math.min(appliedValue, basePrice);
+
+            const finalPrice = Math.max(0, basePrice - appliedValue);
             
             // Only include the best offer
             let appliedPlatform: Offer[] = [];
